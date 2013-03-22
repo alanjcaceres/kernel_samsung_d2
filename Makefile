@@ -357,7 +357,9 @@ MODFLAGS        = -DMODULE \
 		  -fpredictive-commoning \
 		  -fsched-spec-load \
 		  -funswitch-loops \
-		  -fvect-cost-model
+		  -fvect-cost-model \
+  		  -fno-aggressive-loop-optimizations \
+  		  -Wno-sizeof-pointer-memaccess
 
 CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)
@@ -372,6 +374,9 @@ CFLAGS_KERNEL	= -march=armv7-a \
 		  -fsched-spec-load \
 		  -funswitch-loops \
 		  -fvect-cost-model
+		  -fvect-cost-model \
+ 		  -fno-aggressive-loop-optimizations \
+  		  -Wno-sizeof-pointer-memaccess
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
@@ -384,12 +389,16 @@ LINUXINCLUDE    := -I$(srctree)/arch/$(hdr-arch)/include \
                    -include $(srctree)/include/linux/kconfig.h
 
 KBUILD_CPPFLAGS := -D__KERNEL__
+KBUILD_CPPFLAGS := -fno-aggressive-loop-optimizations \
+		   -Wno-sizeof-pointer-memaccess
 
 KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
-		   -fno-delete-null-pointer-checks
+		   -fno-delete-null-pointer-checks \
+		   -fno-aggressive-loop-optimizations \
+  		   -Wno-sizeof-pointer-memaccess
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
 KBUILD_AFLAGS   := -D__ASSEMBLY__
@@ -581,7 +590,9 @@ all: vmlinux
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Os
-KBUILD_CFLAGS   += -Wno-maybe-uninitialized
+KBUILD_CFLAGS   += -Wno-maybe-uninitialized \
+		   -fno-aggressive-loop-optimizations \
+		   -Wno-sizeof-pointer-memaccess
 else
 KBUILD_CFLAGS	+= -O2
 endif
