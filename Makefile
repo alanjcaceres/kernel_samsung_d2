@@ -593,7 +593,29 @@ KBUILD_CFLAGS   += -Wno-maybe-uninitialized \
 		   -fno-aggressive-loop-optimizations \
 		   -Wno-sizeof-pointer-memaccess
 else
-KBUILD_CFLAGS	+= -O2
+KBUILD_CFLAGS  += -Os \
+                  -fthread-jumps \
+                  -fcaller-saves \
+                  -fcrossjumping \
+                  -fcse-follow-jumps -fcse-skip-blocks \
+                  -fdelete-null-pointer-checks \
+                  -fdevirtualize \
+                  -fexpensive-optimizations \
+                  -fgcse \
+                  -fgcse-lm \
+                  -finline-small-functions \
+                  -findirect-inlining \
+                  -fipa-sra \
+                  -foptimize-sibling-calls \
+                  -fpartial-inlining \
+                  -fpeephole2 \
+                  -fregmove \
+                  -frerun-cse-after-loop \
+                  -fsched-interblock -fsched-spec \
+                  -fschedule-insns -fschedule-insns2 \
+                  -ftree-switch-conversion -ftree-tail-merge \
+                  -ftree-pre \
+                  -ftree-vrp
 endif
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
