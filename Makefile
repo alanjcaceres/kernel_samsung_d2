@@ -393,7 +393,7 @@ LINUXINCLUDE    := -I$(srctree)/arch/$(hdr-arch)/include \
                    -include $(srctree)/include/linux/kconfig.h
 
 KBUILD_CPPFLAGS := -D__KERNEL__
-KBUILD_CPPFLAGS := -fno-aggressive-loop-optimizations \
+KBUILD_CPPFLAGS += -fno-aggressive-loop-optimizations \
 		   -Wno-sizeof-pointer-memaccess
 
 KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
