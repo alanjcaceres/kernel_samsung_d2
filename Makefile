@@ -377,6 +377,7 @@ CFLAGS_KERNEL	= -march=armv7-a \
 		  -fpredictive-commoning \
 		  -fsched-spec-load \
 		  -funswitch-loops \
+		  -fvect-cost-model
 		  -fvect-cost-model \
  		  -fno-aggressive-loop-optimizations \
   		  -Wno-sizeof-pointer-memaccess
