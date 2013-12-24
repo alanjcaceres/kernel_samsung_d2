@@ -30,7 +30,6 @@
 #include <linux/fb.h>
 #include <linux/msm_mdp.h>
 #include <linux/file.h>
-#include <linux/android_pmem.h>
 #include <linux/major.h>
 #include <asm/system.h>
 #include <asm/mach-types.h>
@@ -334,7 +333,7 @@ int mdp4_overlay_iommu_map_buf(int mem_id,
 		pipe->pipe_ndx, plane);
 	if (ion_map_iommu(display_iclient, *srcp_ihdl,
 		DISPLAY_READ_DOMAIN, GEN_POOL, SZ_4K, 0, start,
-		len, 0, 0)) {
+		len, 0, ION_IOMMU_UNMAP_DELAYED)) {
 		ion_free(display_iclient, *srcp_ihdl);
 		pr_err("ion_map_iommu() failed\n");
 		return -EINVAL;
@@ -1026,28 +1025,13 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	outpdw(vg_base + 0x0008, dst_size);	/* MDP_RGB_DST_SIZE */
 	outpdw(vg_base + 0x000c, dst_xy);	/* MDP_RGB_DST_XY */
 
+	/* TILE frame size */
 	if (pipe->frame_format != MDP4_FRAME_FORMAT_LINEAR) {
-		struct mdp4_overlay_pipe *real_pipe;
-		u32 psize, csize;
-
-		/*
-		 * video tile frame size register is NOT double buffered.
-		 * when this register updated, it kicks in immediatly
-		 * During transition from smaller resolution to higher
-		 * resolution  it may have possibility that mdp still fetch
-		 * from smaller resolution buffer with new higher resolution
-		 * frame size. This will cause iommu page fault.
-		 */
-		real_pipe = mdp4_overlay_ndx2pipe(pipe->pipe_ndx);
-		psize = real_pipe->prev_src_height * real_pipe->prev_src_width;
-		csize = pipe->src_height * pipe->src_width;
-		if (psize && (csize > psize)) {
-			frame_size = (real_pipe->prev_src_height << 16 |
-					real_pipe->prev_src_width);
-		}
-		outpdw(vg_base + 0x0048, frame_size);	/* TILE frame size */
-		real_pipe->prev_src_height = pipe->src_height;
-		real_pipe->prev_src_width = pipe->src_width;
+		if ((ctrl->panel_mode & MDP4_PANEL_DSI_CMD && pipe->mixer_num == 0) ||
+			(ctrl->panel_mode & MDP4_PANEL_WRITEBACK && pipe->mixer_num == 2))
+			outpdw(vg_base + 0x0048, frame_size);
+		else
+			pipe->frame_size = frame_size;
 	}
 
 	/*
@@ -3399,9 +3383,6 @@ static int get_img(struct msmfb_data *img, struct fb_info *info,
 {
 	struct file *file;
 	int put_needed, ret = 0, fb_num;
-#ifdef CONFIG_ANDROID_PMEM
-	unsigned long vstart;
-#endif
 	*p_need = 0;
 
 	if (img->flags & MDP_BLIT_SRC_GEM) {
@@ -3435,13 +3416,6 @@ static int get_img(struct msmfb_data *img, struct fb_info *info,
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	return mdp4_overlay_iommu_map_buf(img->memory_id, pipe, plane,
 		start, len, srcp_ihdl);
-#endif
-#ifdef CONFIG_ANDROID_PMEM
-	if (!get_pmem_file(img->memory_id, start, &vstart,
-					    len, srcp_file))
-		return 0;
-	else
-		return -EINVAL;
 #endif
 }
 
@@ -3778,6 +3752,24 @@ void mdp4_overlay_dma_commit(int mixer)
 	* non double buffer register update here
 	* perf level, new clock rate should be done here
 	*/
+	struct mdp4_overlay_pipe *pipe;
+	char *vg_base;
+	int i, pnum;
+	for (i = 0; i < OVERLAY_PIPE_MAX; i++, pipe++) {
+		pipe = ctrl->stage[mixer][i];
+		if (pipe) {
+			if (pipe->pipe_type == OVERLAY_TYPE_VIDEO &&
+						(pipe->frame_format !=
+						MDP4_FRAME_FORMAT_LINEAR) &&
+						pipe->frame_size) {
+				pnum = pipe->pipe_num - OVERLAY_PIPE_VG1;
+				vg_base = MDP_BASE + MDP4_VIDEO_BASE;
+				vg_base += (MDP4_VIDEO_OFF * pnum);
+				outpdw(vg_base + 0x0048, pipe->frame_size);
+				pipe->frame_size = 0;
+			}
+		}
+	}
 }
 
 /*
@@ -3991,7 +3983,7 @@ int mdp4_overlay_commit(struct fb_info *info)
 		mdp4_dsi_cmd_pipe_commit(0, 1, &release_busy);
 		break;
 	case MIPI_VIDEO_PANEL:
-		mdp4_dsi_video_pipe_commit(0, 1);
+		mdp4_dsi_video_pipe_commit(0, 1, &release_busy);
 		break;
 	case LVDS_PANEL:
 	case LCDC_PANEL:
